@@ -317,9 +317,11 @@
                     // Priority: look for a sheet named 'Data' or use the first sheet
                     const sheetName = workbook.SheetNames.find(s => s.toLowerCase().includes('data')) || workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[sheetName];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
                     
-                    parseExcelData(jsonData);
+                    // Read as 2D array (array of arrays) instead of objects to bypass header row issues
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null });
+                    
+                    parseExcelData(rows);
                 } catch (error) {
                     console.error("Error reading file:", error);
                     alert("Failed to read the Excel file. Please ensure it's a valid format.");
@@ -330,50 +332,100 @@
             reader.readAsArrayBuffer(file);
         }
 
-        function parseExcelData(jsonData) {
-            const parsedData = [];
-            
-            jsonData.forEach((row, idx) => {
-                const keys = Object.keys(row);
+        function parseExcelData(rows) {
+            let parsedData = [];
+            let colMap = null;
+
+            // 1. Smart Header Detection: Scan the first 20 rows to find headers (bypassing titles/empty rows)
+            for (let i = 0; i < Math.min(rows.length, 20); i++) {
+                const row = rows[i];
+                if (!row || row.length === 0) continue;
                 
-                // Helper to flexibly find columns regardless of exact naming
-                const getVal = (keywords) => {
-                    const key = keys.find(k => keywords.some(kw => k.toLowerCase().includes(kw)));
-                    return key ? row[key] : null;
-                };
-
-                // PSM Columns
-                let tc = getVal(['too cheap', 'tc', 'p1']);
-                let c = getVal(['cheap', 'good value', 'c', 'p2']);
-                let e = getVal(['expensive', 'e', 'p3']);
-                let te = getVal(['too expensive', 'te', 'p4']);
+                // Clean and normalize cell values
+                const strRow = row.map(cell => String(cell || '').toLowerCase().trim());
                 
-                // NMS Intent Columns (Default to conservative 4 and 2 if missing)
-                let pi_c = getVal(['intent', 'pi cheap', 'likelihood cheap', 'buy at cheap', 'pi c']) || 4; 
-                let pi_e = getVal(['intent', 'pi expensive', 'likelihood exp', 'buy at exp', 'pi e']) || 2; 
-
-                tc = parseFloat(tc);
-                c = parseFloat(c);
-                e = parseFloat(e);
-                te = parseFloat(te);
-
-                // Only push valid numerical rows
-                if (!isNaN(tc) && !isNaN(c) && !isNaN(e) && !isNaN(te)) {
-                    // Force clean PSM logic sorting: TC <= C <= E <= TE
-                    const prices = [tc, c, e, te].sort((a,b) => a-b);
+                let tc = strRow.findIndex(v => v.includes('too cheap') || v === 'tc' || v.includes('p1') || v.includes('sangat murah'));
+                let te = strRow.findIndex(v => v.includes('too exp') || v === 'te' || v.includes('p4') || v.includes('sangat mahal') || v.includes('too expensive'));
+                
+                // Ensure C and E don't accidentally match TC and TE strings
+                let c = strRow.findIndex((v, idx) => idx !== tc && idx !== te && (v.includes('cheap') || v.includes('good value') || v === 'c' || v.includes('p2') || v.includes('murah')));
+                let e = strRow.findIndex((v, idx) => idx !== tc && idx !== te && idx !== c && (v.includes('exp') || v === 'e' || v.includes('p3') || v.includes('mahal')));
+                
+                if (tc !== -1 && c !== -1 && e !== -1 && te !== -1) {
+                    let pi_c = strRow.findIndex(v => v.includes('intent') || v.includes('pi c') || v.includes('likelihood') || v.includes('beli'));
+                    let pi_e = strRow.findIndex((v, idx) => idx !== pi_c && (v.includes('intent') || v.includes('pi e') || v.includes('likelihood') || v.includes('beli')));
+                    let id = strRow.findIndex(v => v === 'id' || v.includes('respondent') || v.includes('no'));
                     
-                    parsedData.push({
-                        id: getVal(['id', 'respondent', 'no']) || `RES-${(idx+1).toString().padStart(3,'0')}`,
-                        tc: prices[0],
-                        c: prices[1],
-                        e: prices[2],
-                        te: prices[3],
-                        pi_c: parseInt(pi_c) || 4,
-                        pi_e: parseInt(pi_e) || 2
-                    });
+                    colMap = { tc, c, e, te, pi_c, pi_e, id, rowIndex: i };
+                    break;
                 }
-            });
+            }
 
+            // 2. Extract Data Based on Detected Headers
+            if (colMap) {
+                for (let i = colMap.rowIndex + 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || row.length === 0) continue;
+                    
+                    let tcVal = parseFloat(row[colMap.tc]);
+                    let cVal = parseFloat(row[colMap.c]);
+                    let eVal = parseFloat(row[colMap.e]);
+                    let teVal = parseFloat(row[colMap.te]);
+                    
+                    if (!isNaN(tcVal) && !isNaN(cVal) && !isNaN(eVal) && !isNaN(teVal)) {
+                        // Force clean PSM logic sorting: TC <= C <= E <= TE
+                        const prices = [tcVal, cVal, eVal, teVal].sort((a,b) => a-b);
+                        
+                        let picVal = colMap.pi_c !== -1 ? parseFloat(row[colMap.pi_c]) : 4;
+                        let pieVal = colMap.pi_e !== -1 ? parseFloat(row[colMap.pi_e]) : 2;
+                        
+                        parsedData.push({
+                            id: (colMap.id !== -1 && row[colMap.id]) ? row[colMap.id] : `RES-${parsedData.length + 1}`,
+                            tc: prices[0],
+                            c: prices[1],
+                            e: prices[2],
+                            te: prices[3],
+                            pi_c: isNaN(picVal) ? 4 : Math.round(picVal),
+                            pi_e: isNaN(pieVal) ? 2 : Math.round(pieVal)
+                        });
+                    }
+                }
+            }
+
+            // 3. Fallback: Heuristic "Headerless" Parsing
+            // If headers were entirely missing or unreadable, automatically extract numbers
+            if (parsedData.length === 0) {
+                let fallbackCount = 0;
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row) continue;
+                    
+                    // Get all valid numbers from the row
+                    const numbers = row.map(v => parseFloat(v)).filter(v => !isNaN(v));
+                    
+                    // PSM prices are typically the largest numbers in a row (filtering out scales 1-5 or IDs)
+                    const priceCandidates = numbers.filter(n => n > 10).sort((a,b) => a-b);
+                    
+                    if (priceCandidates.length >= 4) {
+                        parsedData.push({
+                            id: `RES-${parsedData.length + 1}`,
+                            tc: priceCandidates[0],
+                            c: priceCandidates[1],
+                            e: priceCandidates[2],
+                            te: priceCandidates[3],
+                            pi_c: 4, // Default NMS scale
+                            pi_e: 2  // Default NMS scale
+                        });
+                        fallbackCount++;
+                    }
+                }
+                
+                if (fallbackCount > 0) {
+                    console.log("Headers not explicitly found, but data was extracted based on numerical patterns.");
+                }
+            }
+
+            // 4. Update UI
             if (parsedData.length > 0) {
                 surveyData = parsedData;
                 renderTable();
@@ -381,7 +433,7 @@
                 document.getElementById('aiContent').classList.add('hidden');
                 document.getElementById('aiContent').innerHTML = '';
             } else {
-                alert("Could not find valid PSM data columns. Please ensure your Excel file contains columns for 'Too Cheap', 'Cheap', 'Expensive', and 'Too Expensive'.");
+                alert("Could not find valid PSM data. Please ensure your Excel file has at least 4 numerical columns of prices for each respondent.");
             }
         }
 
