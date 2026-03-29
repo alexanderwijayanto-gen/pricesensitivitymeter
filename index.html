@@ -10,6 +10,8 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS for Excel Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     
@@ -74,9 +76,13 @@
                     <strong>Van Westendorp</strong> Analysis & <strong>Newton-Miller-Smith (NMS)</strong> Extension. Processing survey data into optimal price metrics and adoption probabilities.
                 </p>
             </div>
-            <div class="flex items-center gap-3">
-                <button onclick="loadExcelSimulation()" class="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white rounded-lg text-sm font-medium transition-all shadow-sm flex items-center gap-2">
-                    <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i> Load Data (DemoPSM_EN.xlsm)
+            <div class="flex flex-col sm:flex-row items-center gap-3">
+                <input type="file" id="excelFile" accept=".xlsx, .xls, .xlsm, .csv" class="hidden" onchange="handleFileUpload(event)">
+                <button onclick="document.getElementById('excelFile').click()" class="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2">
+                    <i data-lucide="upload" class="w-4 h-4"></i> Upload Excel Data
+                </button>
+                <button onclick="loadExcelSimulation()" class="w-full sm:w-auto px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white rounded-lg text-sm font-medium transition-all shadow-sm flex items-center justify-center gap-2">
+                    <i data-lucide="test-tube" class="w-4 h-4 text-indigo-400"></i> Run Simulation
                 </button>
             </div>
         </header>
@@ -293,28 +299,107 @@
         let surveyData = [];
         let chartVW, chartAdoption, chartRevenue;
 
-        // Number Formatters (Changed to USD for English context)
+        // Number Formatters
         const formatCurr = val => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(Math.round(val));
         const formatPct = val => (val * 100).toFixed(1) + '%';
 
-        // Simulate reading from an Excel file like DemoPSM_EN.xlsm
+        // --- EXCEL FILE UPLOAD LOGIC ---
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Priority: look for a sheet named 'Data' or use the first sheet
+                    const sheetName = workbook.SheetNames.find(s => s.toLowerCase().includes('data')) || workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                    
+                    parseExcelData(jsonData);
+                } catch (error) {
+                    console.error("Error reading file:", error);
+                    alert("Failed to read the Excel file. Please ensure it's a valid format.");
+                }
+                // Reset input
+                event.target.value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseExcelData(jsonData) {
+            const parsedData = [];
+            
+            jsonData.forEach((row, idx) => {
+                const keys = Object.keys(row);
+                
+                // Helper to flexibly find columns regardless of exact naming
+                const getVal = (keywords) => {
+                    const key = keys.find(k => keywords.some(kw => k.toLowerCase().includes(kw)));
+                    return key ? row[key] : null;
+                };
+
+                // PSM Columns
+                let tc = getVal(['too cheap', 'tc', 'p1']);
+                let c = getVal(['cheap', 'good value', 'c', 'p2']);
+                let e = getVal(['expensive', 'e', 'p3']);
+                let te = getVal(['too expensive', 'te', 'p4']);
+                
+                // NMS Intent Columns (Default to conservative 4 and 2 if missing)
+                let pi_c = getVal(['intent', 'pi cheap', 'likelihood cheap', 'buy at cheap', 'pi c']) || 4; 
+                let pi_e = getVal(['intent', 'pi expensive', 'likelihood exp', 'buy at exp', 'pi e']) || 2; 
+
+                tc = parseFloat(tc);
+                c = parseFloat(c);
+                e = parseFloat(e);
+                te = parseFloat(te);
+
+                // Only push valid numerical rows
+                if (!isNaN(tc) && !isNaN(c) && !isNaN(e) && !isNaN(te)) {
+                    // Force clean PSM logic sorting: TC <= C <= E <= TE
+                    const prices = [tc, c, e, te].sort((a,b) => a-b);
+                    
+                    parsedData.push({
+                        id: getVal(['id', 'respondent', 'no']) || `RES-${(idx+1).toString().padStart(3,'0')}`,
+                        tc: prices[0],
+                        c: prices[1],
+                        e: prices[2],
+                        te: prices[3],
+                        pi_c: parseInt(pi_c) || 4,
+                        pi_e: parseInt(pi_e) || 2
+                    });
+                }
+            });
+
+            if (parsedData.length > 0) {
+                surveyData = parsedData;
+                renderTable();
+                processPSMData();
+                document.getElementById('aiContent').classList.add('hidden');
+                document.getElementById('aiContent').innerHTML = '';
+            } else {
+                alert("Could not find valid PSM data columns. Please ensure your Excel file contains columns for 'Too Cheap', 'Cheap', 'Expensive', and 'Too Expensive'.");
+            }
+        }
+
+        // Simulate reading from an Excel file if user clicks "Run Simulation"
         function loadExcelSimulation() {
-            const numRespondents = 80; // simulate 80 rows of data
+            const numRespondents = 80; 
             surveyData = [];
             
             for(let i=1; i<=numRespondents; i++) {
-                // Simulate different income segments (base between $20 and $60)
                 const userBase = 20 + Math.random() * 40; 
                 
-                // Ensure logical constraints: TC < C < E < TE and overlapping distributions
                 const tc = Math.round(userBase * (0.4 + Math.random()*0.3));
                 const c = Math.round(userBase * (0.8 + Math.random()*0.3));
                 const e = Math.round(userBase * (1.2 + Math.random()*0.4));
                 const te = Math.round(userBase * (1.6 + Math.random()*0.5));
 
-                // Purchase Intent (1-5). Usually higher at 'Cheap' than 'Expensive'
-                const pi_c = Math.floor(Math.random() * 3) + 3; // 3, 4, or 5
-                const pi_e = Math.floor(Math.random() * 3) + 1; // 1, 2, or 3
+                const pi_c = Math.floor(Math.random() * 3) + 3; 
+                const pi_e = Math.floor(Math.random() * 3) + 1; 
 
                 surveyData.push({ 
                     id: `RES-${i.toString().padStart(3,'0')}`, 
