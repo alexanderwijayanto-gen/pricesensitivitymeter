@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSM Analyzer - Zenith Cloud</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        zinc: { 850: '#1f1f22', 900: '#18181b', 950: '#09090b' }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            background-color: #09090b;
+            color: #e4e4e7;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+
+        .bg-noise {
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+        
+        /* Smooth transition for visual bar */
+        .wtp-bar-transition { transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+    </style>
+</head>
+<body class="min-h-screen selection:bg-indigo-500/30 p-4 md:p-8 relative">
+
+    <!-- Background Effects -->
+    <div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-900/20 blur-[120px]"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-900/10 blur-[120px]"></div>
+        <div class="absolute inset-0 bg-noise opacity-[0.03] mix-blend-overlay"></div>
+    </div>
+
+    <div class="max-w-7xl mx-auto relative z-10 space-y-6">
+        
+        <!-- Header -->
+        <header class="text-left flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-zinc-800/60 pb-6">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-medium text-indigo-400 mb-4">
+                    <i data-lucide="bar-chart-2" class="w-3.5 h-3.5"></i>
+                    <span>Zenith Advanced Analytics</span>
+                </div>
+                <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-white mb-2">
+                    Price Sensitivity Meter <span class="text-indigo-500">(PSM)</span>
+                </h1>
+                <p class="text-zinc-400 max-w-2xl text-sm md:text-base">
+                    <strong>Van Westendorp</strong> Analysis & <strong>Newton-Miller-Smith (NMS)</strong> Extension. Processing survey data into optimal price metrics and adoption probabilities.
+                </p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="loadExcelSimulation()" class="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white rounded-lg text-sm font-medium transition-all shadow-sm flex items-center gap-2">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i> Load Data (DemoPSM_EN.xlsm)
+                </button>
+            </div>
+        </header>
+
+        <!-- DATA VIEWER PANEL -->
+        <div class="p-6 rounded-3xl bg-[#121214] border border-white/5 shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-purple-500"></div>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="database" class="w-5 h-5 text-zinc-400"></i>
+                    Respondent Data (Input)
+                </h2>
+                <span class="text-xs font-mono text-zinc-500 bg-zinc-900 px-2 py-1 rounded border border-zinc-800" id="dataCount">n = 0</span>
+            </div>
+            <div class="overflow-x-auto border border-zinc-800/60 rounded-xl bg-[#09090b]/50 max-h-56 overflow-y-auto">
+                <table class="w-full text-center border-collapse min-w-[800px]">
+                    <thead class="sticky top-0 bg-zinc-900/95 backdrop-blur z-10">
+                        <tr>
+                            <th class="py-3 px-3 text-[10px] font-semibold text-zinc-400 uppercase border-b border-zinc-800">Resp. ID</th>
+                            <th class="py-3 px-3 text-[10px] font-semibold text-emerald-500 uppercase border-b border-zinc-800">Too Cheap (TC)</th>
+                            <th class="py-3 px-3 text-[10px] font-semibold text-teal-500 uppercase border-b border-zinc-800">Cheap (C)</th>
+                            <th class="py-3 px-3 text-[10px] font-semibold text-amber-500 uppercase border-b border-zinc-800">Expensive (E)</th>
+                            <th class="py-3 px-3 text-[10px] font-semibold text-rose-500 uppercase border-b border-zinc-800">Too Exp. (TE)</th>
+                            <th class="py-3 px-3 text-[10px] font-semibold text-indigo-400 uppercase border-b border-zinc-800">Purchase Intent @ C</th>
+                            <th class="py-3 px-3 text-[10px] font-semibold text-purple-400 uppercase border-b border-zinc-800">Purchase Intent @ E</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody" class="text-xs text-zinc-300 font-mono">
+                        <!-- Data injected via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- VAN WESTENDORP SECTION -->
+        <div class="space-y-6 pt-4">
+            <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                <i data-lucide="line-chart" class="w-6 h-6 text-emerald-400"></i> Van Westendorp Analysis
+            </h2>
+            
+            <!-- Metric Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 relative group hover:border-emerald-500/30 transition-colors">
+                    <h3 class="text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Point of Marginal Cheapness (PMC)</h3>
+                    <p class="text-xs text-zinc-400 mb-2">Lower Price Bound</p>
+                    <div class="text-2xl font-bold text-white" id="valPMC">$0</div>
+                </div>
+                <div class="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 relative group shadow-[0_0_20px_rgba(16,185,129,0.05)]">
+                    <h3 class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-1">Optimal Price Point (OPP)</h3>
+                    <p class="text-xs text-emerald-500/70 mb-2">Lowest Rejection</p>
+                    <div class="text-2xl font-bold text-emerald-400" id="valOPP">$0</div>
+                </div>
+                <div class="p-5 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 relative group shadow-[0_0_20px_rgba(99,102,241,0.05)]">
+                    <h3 class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider mb-1">Indifference Price Point (IDP)</h3>
+                    <p class="text-xs text-indigo-500/70 mb-2">Normal/Fair Price</p>
+                    <div class="text-2xl font-bold text-indigo-400" id="valIDP">$0</div>
+                </div>
+                <div class="p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 relative group hover:border-rose-500/30 transition-colors">
+                    <h3 class="text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Point of Marginal Expensiveness (PME)</h3>
+                    <p class="text-xs text-zinc-400 mb-2">Upper Price Bound</p>
+                    <div class="text-2xl font-bold text-white" id="valPME">$0</div>
+                </div>
+            </div>
+
+            <!-- VW Chart -->
+            <div class="p-6 md:p-8 rounded-3xl bg-[#121214] border border-white/5 shadow-2xl relative">
+                <div class="w-full h-[350px] md:h-[450px] relative">
+                    <canvas id="chartVW"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEWTON MILLER SMITH SECTION -->
+        <div class="space-y-6 pt-8 border-t border-zinc-800/60">
+            <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                <i data-lucide="target" class="w-6 h-6 text-purple-400"></i> Newton-Miller-Smith (NMS) Extension
+            </h2>
+            <p class="text-sm text-zinc-400 max-w-3xl leading-relaxed">
+                Purchase intent is converted into probabilities <span class="text-zinc-300">(1=0%, 2=10%, 3=30%, 4=50%, 5=70%)</span>. According to the NMS methodology, purchase probability is forced to <strong>0%</strong> at extreme price points (<em>Too Cheap</em> & <em>Too Expensive</em>).
+            </p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- NMS Cards -->
+                <div class="lg:col-span-4 space-y-4">
+                    <div class="p-6 rounded-3xl bg-indigo-950/20 border border-indigo-500/20 relative shadow-[0_0_30px_rgba(99,102,241,0.05)]">
+                        <div class="p-2 bg-indigo-500/10 w-fit rounded-lg mb-4 border border-indigo-500/20"><i data-lucide="users" class="w-5 h-5 text-indigo-400"></i></div>
+                        <h3 class="text-sm font-semibold text-zinc-400 mb-1">Optimal Adoption Price</h3>
+                        <p class="text-xs text-zinc-500 mb-3">Maximize Market Share (Volume)</p>
+                        <div class="text-3xl font-bold text-indigo-400 mb-1" id="valMaxAdoptionPrice">$0</div>
+                        <div class="text-sm text-zinc-300">Estimated Trial Rate: <span class="font-bold" id="valMaxAdoptionRate">0%</span></div>
+                    </div>
+
+                    <div class="p-6 rounded-3xl bg-purple-950/20 border border-purple-500/20 relative shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                        <div class="p-2 bg-purple-500/10 w-fit rounded-lg mb-4 border border-purple-500/20"><i data-lucide="coins" class="w-5 h-5 text-purple-400"></i></div>
+                        <h3 class="text-sm font-semibold text-zinc-400 mb-1">Optimal Revenue Price</h3>
+                        <p class="text-xs text-zinc-500 mb-3">Maximize Revenue (Price × Probability)</p>
+                        <div class="text-3xl font-bold text-purple-400 mb-1" id="valMaxRevenuePrice">$0</div>
+                        <div class="text-sm text-zinc-300">Revenue Index: <span class="font-bold" id="valMaxRevenueIndex">0</span></div>
+                    </div>
+                </div>
+
+                <!-- NMS Charts -->
+                <div class="lg:col-span-8 space-y-6">
+                    <div class="p-5 md:p-6 rounded-3xl bg-[#121214] border border-white/5 shadow-xl">
+                        <h3 class="text-sm font-bold text-white mb-4">Product Adoption Curve (Trial/Demand Curve)</h3>
+                        <div class="w-full h-[220px] relative"><canvas id="chartAdoption"></canvas></div>
+                    </div>
+                    <div class="p-5 md:p-6 rounded-3xl bg-[#121214] border border-white/5 shadow-xl">
+                        <h3 class="text-sm font-bold text-white mb-4">Potential Revenue Curve</h3>
+                        <div class="w-full h-[220px] relative"><canvas id="chartRevenue"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EXECUTIVE SUMMARY & AI INTEGRATION -->
+        <div class="space-y-6 pt-8 border-t border-zinc-800/60 pb-4">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="lightbulb" class="w-6 h-6 text-amber-400"></i> Executive Summary: Willingness to Pay (WTP)
+                    </h2>
+                    <p class="text-sm text-zinc-400 max-w-3xl mt-1">
+                        WTP insights are derived from the synthesis of price psychology (Van Westendorp) and market probability realities (Newton-Miller-Smith).
+                    </p>
+                </div>
+            </div>
+
+            <div class="p-6 md:p-8 rounded-3xl bg-[#121214] border border-white/5 shadow-2xl relative">
+                <h3 class="text-lg font-bold text-white mb-8">WTP Tolerance Zone (Acceptable Price Range)</h3>
+                
+                <!-- Visual Bar -->
+                <div class="relative w-full h-10 bg-zinc-900 rounded-full border border-zinc-800/60 mb-20 mt-4">
+                    <!-- Dynamic Tolerance Bar -->
+                    <div id="wtpBar" class="absolute top-0 h-full bg-gradient-to-r from-emerald-500/20 via-indigo-500/20 to-rose-500/20 rounded-full wtp-bar-transition border border-zinc-700/50"></div>
+                    
+                    <!-- Markers -->
+                    <div id="markerPMC" class="absolute top-0 w-1 h-full bg-emerald-500 z-10 -ml-0.5 rounded-full wtp-bar-transition"></div>
+                    <div id="labelPMC" class="absolute top-12 text-[11px] text-emerald-400 -translate-x-1/2 text-center wtp-bar-transition whitespace-nowrap">
+                        PMC (Lower Bound)<br><strong id="wtpValPMC" class="text-sm">$0</strong>
+                    </div>
+                    
+                    <div id="markerIDP" class="absolute top-0 w-1 h-full bg-indigo-500 z-10 -ml-0.5 rounded-full wtp-bar-transition shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
+                    <div id="labelIDP" class="absolute top-12 text-[11px] text-indigo-400 -translate-x-1/2 text-center wtp-bar-transition whitespace-nowrap">
+                        IDP (Fair Price)<br><strong id="wtpValIDP" class="text-sm">$0</strong>
+                    </div>
+                    
+                    <div id="markerPME" class="absolute top-0 w-1 h-full bg-rose-500 z-10 -ml-0.5 rounded-full wtp-bar-transition"></div>
+                    <div id="labelPME" class="absolute top-12 text-[11px] text-rose-400 -translate-x-1/2 text-center wtp-bar-transition whitespace-nowrap">
+                        PME (Upper Bound)<br><strong id="wtpValPME" class="text-sm">$0</strong>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10 border-t border-zinc-800/60 pt-8">
+                    <div class="p-6 rounded-2xl bg-indigo-950/20 border border-indigo-500/20">
+                        <div class="flex items-center gap-2 mb-3">
+                            <i data-lucide="rocket" class="w-5 h-5 text-indigo-400"></i>
+                            <h4 class="font-bold text-indigo-400 text-lg">Market Penetration Strategy</h4>
+                        </div>
+                        <p class="text-sm text-zinc-400 mb-5">Recommended price to acquire the maximum number of users (Max Adoption Rate). Suitable when fighting dominant competitors.</p>
+                        <div class="text-3xl font-bold text-white" id="wtpPenetration">$0</div>
+                    </div>
+                    
+                    <div class="p-6 rounded-2xl bg-purple-950/20 border border-purple-500/20">
+                        <div class="flex items-center gap-2 mb-3">
+                            <i data-lucide="gem" class="w-5 h-5 text-purple-400"></i>
+                            <h4 class="font-bold text-purple-400 text-lg">Profit Maximization Strategy</h4>
+                        </div>
+                        <p class="text-sm text-zinc-400 mb-5">Recommended price to capture the highest gross revenue. Suitable when brand position is strong and focusing on profit growth.</p>
+                        <div class="text-3xl font-bold text-white" id="wtpPremium">$0</div>
+                    </div>
+                </div>
+
+                <!-- GEMINI AI INTEGRATION -->
+                <div class="mt-8 p-6 rounded-2xl bg-gradient-to-br from-indigo-900/10 to-purple-900/10 border border-indigo-500/30 relative overflow-hidden">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                                ✨ AI Strategy Interpretation (Gemini)
+                            </h3>
+                            <p class="text-xs text-zinc-400">Using Large Language Models (LLMs) to formulate custom pricing strategy recommendations.</p>
+                        </div>
+                        <button id="btnAi" onclick="generateAIAnalysis()" class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-lg text-sm font-semibold transition-all shadow-lg flex items-center gap-2 whitespace-nowrap">
+                            ✨ Generate Executive Summary
+                        </button>
+                    </div>
+
+                    <!-- AI Output Container -->
+                    <div id="aiContent" class="hidden mt-6 p-5 rounded-xl bg-[#09090b]/60 border border-white/5 backdrop-blur">
+                        <!-- Content goes here -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <footer class="mt-12 text-center text-xs text-zinc-600 pb-8 pt-8 border-t border-zinc-800/50">
+            Developed with Vanilla JavaScript (Chart.js) and Tailwind CSS. 1-5 Scale conversion based on Newton-Miller-Smith Extension standards.<br>
+            Powered by ✨ Gemini API for narrative strategy recommendations.
+        </footer>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // GEMINI API CONFIGURATION
+        const apiKey = ""; // Set API key dynamically
+
+        // Standard NMS Probability Mapping (1-5 Scale)
+        const probMap = { 1: 0.0, 2: 0.10, 3: 0.30, 4: 0.50, 5: 0.70 };
+        
+        let surveyData = [];
+        let chartVW, chartAdoption, chartRevenue;
+
+        // Number Formatters (Changed to USD for English context)
+        const formatCurr = val => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(Math.round(val));
+        const formatPct = val => (val * 100).toFixed(1) + '%';
+
+        // Simulate reading from an Excel file like DemoPSM_EN.xlsm
+        function loadExcelSimulation() {
+            const numRespondents = 80; // simulate 80 rows of data
+            surveyData = [];
+            
+            for(let i=1; i<=numRespondents; i++) {
+                // Simulate different income segments (base between $20 and $60)
+                const userBase = 20 + Math.random() * 40; 
+                
+                // Ensure logical constraints: TC < C < E < TE and overlapping distributions
+                const tc = Math.round(userBase * (0.4 + Math.random()*0.3));
+                const c = Math.round(userBase * (0.8 + Math.random()*0.3));
+                const e = Math.round(userBase * (1.2 + Math.random()*0.4));
+                const te = Math.round(userBase * (1.6 + Math.random()*0.5));
+
+                // Purchase Intent (1-5). Usually higher at 'Cheap' than 'Expensive'
+                const pi_c = Math.floor(Math.random() * 3) + 3; // 3, 4, or 5
+                const pi_e = Math.floor(Math.random() * 3) + 1; // 1, 2, or 3
+
+                surveyData.push({ 
+                    id: `RES-${i.toString().padStart(3,'0')}`, 
+                    tc: tc, c: c, e: e, te: te, 
+                    pi_c: pi_c, pi_e: pi_e 
+                });
+            }
+            
+            renderTable();
+            processPSMData();
+            
+            // Reset AI box on new data
+            document.getElementById('aiContent').classList.add('hidden');
+            document.getElementById('aiContent').innerHTML = '';
+        }
+
+        // Render Data Table
+        function renderTable() {
+            const tbody = document.getElementById('dataTableBody');
+            document.getElementById('dataCount').innerText = `n = ${surveyData.length}`;
+            tbody.innerHTML = surveyData.map(r => `
+                <tr class="border-b border-zinc-800/50 hover:bg-white/[0.02]">
+                    <td class="py-2 px-3 text-zinc-500">${r.id}</td>
+                    <td class="py-2 px-3 text-emerald-400/80">${formatCurr(r.tc)}</td>
+                    <td class="py-2 px-3 text-teal-400/80">${formatCurr(r.c)}</td>
+                    <td class="py-2 px-3 text-amber-400/80">${formatCurr(r.e)}</td>
+                    <td class="py-2 px-3 text-rose-400/80">${formatCurr(r.te)}</td>
+                    <td class="py-2 px-3 text-indigo-400/80"><span class="bg-indigo-500/10 px-2 py-0.5 rounded">${r.pi_c}</span></td>
+                    <td class="py-2 px-3 text-purple-400/80"><span class="bg-purple-500/10 px-2 py-0.5 rounded">${r.pi_e}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        // Math: Line Intersection Formula
+        function findIntersection(p1, p2, arrA, arrB) {
+            const y1A = arrA[p1], y2A = arrA[p2];
+            const y1B = arrB[p1], y2B = arrB[p2];
+            
+            // Ensure lines actually cross in this segment
+            if ((y1A - y1B) * (y2A - y2B) > 0) return null;
+            
+            const mA = (y2A - y1A) / (p2 - p1);
+            const mB = (y2B - y1B) / (p2 - p1);
+            
+            if (Math.abs(mA - mB) < 1e-9) {
+                if (Math.abs(y1A - y1B) < 1e-9) return p1; // overlapping
+                return null; // parallel lines
+            }
+            
+            // Intersection X
+            const x = p1 + (y1B - y1A) / (mA - mB);
+            
+            // Check if intersection falls within the segment bounds
+            if (x >= p1 && x <= p2) return x;
+            return null;
+        }
+
+        // NMS Mathematical Interpolation for an individual respondent
+        function calculateNMSProbability(price, resp) {
+            const cProb = probMap[resp.pi_c];
+            const eProb = probMap[resp.pi_e];
+
+            // Core NMS Assumption: 0% at extreme boundaries
+            if (price <= resp.tc || price >= resp.te) return 0; 
+            
+            // Exact hits
+            if (price === resp.c) return cProb;
+            if (price === resp.e) return eProb;
+
+            // Linear Interpolation between points
+            if (price > resp.tc && price < resp.c) {
+                return 0 + (cProb - 0) * ((price - resp.tc) / (resp.c - resp.tc));
+            }
+            if (price > resp.c && price < resp.e) {
+                return cProb + (eProb - cProb) * ((price - resp.c) / (resp.e - resp.c));
+            }
+            if (price > resp.e && price < resp.te) {
+                return eProb + (0 - eProb) * ((price - resp.e) / (resp.te - resp.e));
+            }
+            
+            return 0;
+        }
+
+        // Main Algorithm
+        function processPSMData() {
+            if (surveyData.length === 0) return;
+
+            // Extract all unique price points mentioned by respondents
+            let basePrices = [...new Set(surveyData.flatMap(r => [r.tc, r.c, r.e, r.te]))].sort((a,b) => a-b);
+            
+            // Add interpolation granularity for smooth charts and accurate intersection calculation
+            const minP = basePrices[0];
+            const maxP = basePrices[basePrices.length - 1];
+            const step = (maxP - minP) / 50; // 50 resolution steps
+            
+            const evalPrices = [];
+            for(let p = minP; p <= maxP; p += step) {
+                evalPrices.push(Math.round(p));
+            }
+            // Ensure exact survey prices are included to prevent clipping errors
+            basePrices.forEach(p => { if(!evalPrices.includes(p)) evalPrices.push(p); });
+            evalPrices.sort((a,b) => a-b);
+
+            const totalN = surveyData.length;
+            const vwData = { tc: {}, c: {}, e: {}, te: {} };
+            const nmsData = { trial: {}, rev: {} };
+
+            // 1. Calculate Cumulative Distributions and NMS Probs
+            evalPrices.forEach(p => {
+                let countTC = surveyData.filter(r => r.tc >= p).length;
+                let countC = surveyData.filter(r => r.c >= p).length;
+                let countE = surveyData.filter(r => r.e <= p).length;
+                let countTE = surveyData.filter(r => r.te <= p).length;
+
+                vwData.tc[p] = countTC / totalN;
+                vwData.c[p] = countC / totalN;
+                vwData.e[p] = countE / totalN;
+                vwData.te[p] = countTE / totalN;
+
+                // NMS Processing
+                let sumProb = 0;
+                surveyData.forEach(r => {
+                    sumProb += calculateNMSProbability(p, r);
+                });
+                
+                const avgTrialProb = sumProb / totalN;
+                nmsData.trial[p] = avgTrialProb;
+                nmsData.rev[p] = avgTrialProb * p; 
+            });
+
+            // 2. Find Critical Intersections
+            let opp=0, idp=0, pmc=0, pme=0;
+            
+            for (let i = 0; i < evalPrices.length - 1; i++) {
+                const p1 = evalPrices[i];
+                const p2 = evalPrices[i+1];
+                
+                if (!opp) { let ix = findIntersection(p1, p2, vwData.tc, vwData.te); if (ix) opp = ix; }
+                if (!idp) { let ix = findIntersection(p1, p2, vwData.c, vwData.e); if (ix) idp = ix; }
+                if (!pmc) { let ix = findIntersection(p1, p2, vwData.tc, vwData.e); if (ix) pmc = ix; }
+                if (!pme) { let ix = findIntersection(p1, p2, vwData.c, vwData.te); if (ix) pme = ix; }
+            }
+
+            // Fallback heuristics if curves don't cross perfectly
+            if (!opp) opp = evalPrices[Math.floor(evalPrices.length/2)];
+            if (!idp) idp = opp;
+            if (!pmc) pmc = evalPrices[Math.floor(evalPrices.length/4)];
+            if (!pme) pme = evalPrices[Math.floor(evalPrices.length*0.75)];
+
+            // Update DOM: VW Cards
+            document.getElementById('valOPP').innerText = formatCurr(opp);
+            document.getElementById('valIDP').innerText = formatCurr(idp);
+            document.getElementById('valPMC').innerText = formatCurr(pmc);
+            document.getElementById('valPME').innerText = formatCurr(pme);
+
+            // 3. Find NMS Optimal Points
+            let maxTrial = -1, optTrialPrice = 0;
+            let maxRev = -1, optRevPrice = 0;
+
+            evalPrices.forEach(p => {
+                if (nmsData.trial[p] > maxTrial) { 
+                    maxTrial = nmsData.trial[p]; 
+                    optTrialPrice = p; 
+                }
+                if (nmsData.rev[p] > maxRev) { 
+                    maxRev = nmsData.rev[p]; 
+                    optRevPrice = p; 
+                }
+            });
+
+            // Update DOM: NMS Cards
+            document.getElementById('valMaxAdoptionPrice').innerText = formatCurr(optTrialPrice);
+            document.getElementById('valMaxAdoptionRate').innerText = formatPct(maxTrial);
+            
+            document.getElementById('valMaxRevenuePrice').innerText = formatCurr(optRevPrice);
+            document.getElementById('valMaxRevenueIndex').innerText = Math.round(maxRev).toLocaleString('en-US');
+
+            // 4. Update WTP Executive Dashboard (Visual Bar)
+            updateWTPDashboard(pmc, idp, pme, evalPrices[0], evalPrices[evalPrices.length-1]);
+            
+            // Strategic Recommendations
+            document.getElementById('wtpPenetration').innerText = formatCurr(optTrialPrice);
+            document.getElementById('wtpPremium').innerText = formatCurr(optRevPrice);
+
+            // 5. Draw Charts
+            renderAllCharts(evalPrices, vwData, nmsData, pmc, pme);
+        }
+
+        // Logic for positioning elements in the visual Tolerance Bar
+        function updateWTPDashboard(pmc, idp, pme, minPrice, maxPrice) {
+            const range = maxPrice - minPrice;
+            const getPct = (val) => Math.max(0, Math.min(100, ((val - minPrice) / range) * 100));
+
+            const pctPMC = getPct(pmc);
+            const pctIDP = getPct(idp);
+            const pctPME = getPct(pme);
+
+            // Update Bar fill width
+            document.getElementById('wtpBar').style.left = pctPMC + '%';
+            document.getElementById('wtpBar').style.width = Math.max(0, pctPME - pctPMC) + '%';
+            
+            // Update Markers and Labels
+            document.getElementById('markerPMC').style.left = pctPMC + '%';
+            document.getElementById('labelPMC').style.left = pctPMC + '%';
+            document.getElementById('wtpValPMC').innerText = formatCurr(pmc);
+
+            document.getElementById('markerIDP').style.left = pctIDP + '%';
+            document.getElementById('labelIDP').style.left = pctIDP + '%';
+            document.getElementById('wtpValIDP').innerText = formatCurr(idp);
+
+            document.getElementById('markerPME').style.left = pctPME + '%';
+            document.getElementById('labelPME').style.left = pctPME + '%';
+            document.getElementById('wtpValPME').innerText = formatCurr(pme);
+        }
+
+        // Custom plugin to draw Acceptable Price Range on VW Chart
+        const acceptableRangePlugin = {
+            id: 'acceptableRange',
+            beforeDatasetsDraw: (chart) => {
+                const opts = chart.config.options.acceptableRange;
+                if (!opts || !opts.pmc || !opts.pme || !opts.rawLabels) return;
+
+                const { pmc, pme, rawLabels } = opts;
+                const ctx = chart.ctx;
+                const xAxis = chart.scales.x;
+                const yAxis = chart.scales.y;
+
+                // Function to perfectly map the raw numerical value to X categorical pixel
+                const getX = (val) => {
+                    let leftIdx = -1, rightIdx = -1;
+                    for(let i=0; i<rawLabels.length; i++) {
+                        if(rawLabels[i] === val) return xAxis.getPixelForTick(i);
+                        if(rawLabels[i] > val) { rightIdx = i; leftIdx = i - 1; break; }
+                    }
+                    if (leftIdx === -1) return xAxis.getPixelForTick(0);
+                    if (rightIdx === -1) return xAxis.getPixelForTick(rawLabels.length - 1);
+                    
+                    const pxLeft = xAxis.getPixelForTick(leftIdx);
+                    const pxRight = xAxis.getPixelForTick(rightIdx);
+                    return pxLeft + (pxRight - pxLeft) * ((val - rawLabels[leftIdx]) / (rawLabels[rightIdx] - rawLabels[leftIdx]));
+                };
+
+                const x1 = getX(pmc);
+                const x2 = getX(pme);
+
+                ctx.save();
+                
+                // Shaded background area for Acceptable Range
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.04)'; 
+                ctx.fillRect(x1, yAxis.top, x2 - x1, yAxis.bottom - yAxis.top);
+
+                // PMC Dashed Line (Lower Bound)
+                ctx.beginPath();
+                ctx.moveTo(x1, yAxis.top);
+                ctx.lineTo(x1, yAxis.bottom);
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = 'rgba(16, 185, 129, 0.6)'; // Emerald
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+
+                // PME Dashed Line (Upper Bound)
+                ctx.beginPath();
+                ctx.moveTo(x2, yAxis.top);
+                ctx.lineTo(x2, yAxis.bottom);
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = 'rgba(244, 63, 94, 0.6)'; // Rose
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+
+                // Point Labels
+                ctx.font = 'bold 10px Inter';
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.8)';
+                ctx.fillText('PMC', x1 + 6, yAxis.top + 16);
+                
+                ctx.fillStyle = 'rgba(244, 63, 94, 0.8)';
+                const pmeText = 'PME';
+                ctx.fillText(pmeText, x2 - ctx.measureText(pmeText).width - 6, yAxis.top + 16);
+                
+                // Center Text (Acceptable Price Range)
+                ctx.font = '10px Inter';
+                ctx.fillStyle = 'rgba(161, 161, 170, 0.6)'; // zinc-400
+                const centerText = 'Acceptable Price Range';
+                const centerWidth = ctx.measureText(centerText).width;
+                // Only draw text if there's enough horizontal space
+                if (x2 - x1 > centerWidth + 20) {
+                    ctx.fillText(centerText, x1 + (x2 - x1) / 2 - centerWidth / 2, yAxis.top + 16);
+                }
+
+                ctx.restore();
+            }
+        };
+
+        // Render Chart.js
+        function renderAllCharts(labels, vwData, nmsData, pmc, pme) {
+            // Downsample labels for cleaner X-axis
+            const chartLabels = labels.map(l => formatCurr(l).replace('$', ''));
+            
+            const commonOptions = {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: '#a1a1aa', usePointStyle: true, boxWidth: 8, font: { family: 'Inter', size: 12 } } },
+                    tooltip: { backgroundColor: 'rgba(24, 24, 27, 0.9)', titleColor: '#fff', bodyColor: '#e4e4e7', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }, ticks: { color: '#71717a', font: { family: 'Inter', size: 10 }, maxTicksLimit: 15 } },
+                    y: { grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }, ticks: { color: '#71717a', font: { family: 'Inter', size: 11 } } }
+                }
+            };
+
+            // 1. Van Westendorp Chart
+            const ctxVW = document.getElementById('chartVW').getContext('2d');
+            if (chartVW) chartVW.destroy();
+            chartVW = new Chart(ctxVW, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [
+                        { label: 'Too Cheap', data: labels.map(p => vwData.tc[p]*100), borderColor: '#10b981', backgroundColor: 'transparent', tension: 0.4 },
+                        { label: 'Cheap', data: labels.map(p => vwData.c[p]*100), borderColor: '#14b8a6', borderDash: [5,5], backgroundColor: 'transparent', tension: 0.4 },
+                        { label: 'Expensive', data: labels.map(p => vwData.e[p]*100), borderColor: '#f59e0b', borderDash: [5,5], backgroundColor: 'transparent', tension: 0.4 },
+                        { label: 'Too Expensive', data: labels.map(p => vwData.te[p]*100), borderColor: '#f43f5e', backgroundColor: 'transparent', tension: 0.4 }
+                    ]
+                },
+                options: { 
+                    ...commonOptions, 
+                    acceptableRange: { pmc: pmc, pme: pme, rawLabels: labels },
+                    scales: { ...commonOptions.scales, y: { ...commonOptions.scales.y, title: { display: true, text: 'Respondent Percentage (%)', color: '#71717a' } } } 
+                },
+                plugins: [acceptableRangePlugin]
+            });
+
+            // 2. NMS Adoption Curve
+            const ctxAdoption = document.getElementById('chartAdoption').getContext('2d');
+            if (chartAdoption) chartAdoption.destroy();
+            chartAdoption = new Chart(ctxAdoption, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{ 
+                        label: 'Trial Rate (%)', 
+                        data: labels.map(p => nmsData.trial[p]*100), 
+                        borderColor: '#818cf8', 
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)', 
+                        fill: true, 
+                        tension: 0.4 
+                    }]
+                },
+                options: { ...commonOptions, scales: { ...commonOptions.scales, y: { ...commonOptions.scales.y, title: { display: true, text: 'Probability (%)', color: '#71717a' } } } }
+            });
+
+            // 3. NMS Revenue Curve
+            const ctxRev = document.getElementById('chartRevenue').getContext('2d');
+            if (chartRevenue) chartRevenue.destroy();
+            chartRevenue = new Chart(ctxRev, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{ 
+                        label: 'Revenue Index', 
+                        data: labels.map(p => nmsData.rev[p]), 
+                        borderColor: '#c084fc', 
+                        backgroundColor: 'rgba(168, 85, 247, 0.1)', 
+                        fill: true, 
+                        tension: 0.4 
+                    }]
+                },
+                options: { 
+                    ...commonOptions, 
+                    plugins: { ...commonOptions.plugins, tooltip: { callbacks: { label: (c) => 'Index: ' + Math.round(c.raw).toLocaleString('en-US') } } } 
+                }
+            });
+        }
+
+        // --- GEMINI API INTEGRATION ---
+        
+        // Helper untuk fetch dengan exponential backoff
+        async function fetchWithRetry(url, options, maxRetries = 5) {
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return await response.json();
+                } catch (error) {
+                    if (i === maxRetries - 1) throw error;
+                    await new Promise(res => setTimeout(res, delays[i]));
+                }
+            }
+        }
+
+        // Fungsi panggil AI
+        async function generateAIAnalysis() {
+            const btn = document.getElementById('btnAi');
+            const contentBox = document.getElementById('aiContent');
+            
+            // Set Loading UI
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing Analysis...';
+            btn.disabled = true;
+            contentBox.innerHTML = `
+                <div class="animate-pulse flex space-x-4">
+                    <div class="flex-1 space-y-4 py-1">
+                        <div class="h-3 bg-zinc-700 rounded w-3/4"></div>
+                        <div class="h-3 bg-zinc-700 rounded"></div>
+                        <div class="h-3 bg-zinc-700 rounded w-5/6"></div>
+                    </div>
+                </div>`;
+            contentBox.classList.remove('hidden');
+            lucide.createIcons();
+
+            // Extract values currently in DOM
+            const pmc = document.getElementById('wtpValPMC').innerText;
+            const opp = document.getElementById('valOPP').innerText;
+            const idp = document.getElementById('wtpValIDP').innerText;
+            const pme = document.getElementById('wtpValPME').innerText;
+            const maxAdoption = document.getElementById('wtpPenetration').innerText;
+            const maxRev = document.getElementById('wtpPremium').innerText;
+
+            const prompt = `As an executive-level pricing strategy expert, provide an analysis summary and go-to-market recommendation based on the following Price Sensitivity Meter (Van Westendorp & Newton-Miller-Smith) survey results:
+
+- Lower Price Bound (PMC / Point of Marginal Cheapness): ${pmc}
+- Optimal Price / Lowest Rejection (OPP): ${opp}
+- Fair / Indifference Price (IDP): ${idp}
+- Upper Price Bound (PME / Point of Marginal Expensiveness): ${pme}
+- Max Penetration Strategy Price (Max Adoption): ${maxAdoption}
+- Max Profit Strategy Price (Max Revenue): ${maxRev}
+
+Your Task:
+Provide 3 concise professional paragraphs:
+1. Analysis of the consumer WTP (Willingness to Pay) range and the psychology behind it.
+2. Recommendation on whether to choose the Penetration or Profit price based on general market conditions.
+3. Potential risks of exceeding the PME or PMC bounds.
+
+Use light HTML formatting like <strong> or <ul> <li> for readability on the web. Do not use Markdown format. Respond in professional English.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: "You are a senior data analyst and Pricing Strategy expert. Provide direct, intelligent answers without filler introductions." }] }
+            };
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                const result = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                let text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (text) {
+                    contentBox.innerHTML = `<div class="text-sm text-zinc-300 leading-relaxed space-y-3">${text}</div>`;
+                } else {
+                    contentBox.innerHTML = `<div class="text-sm text-rose-400">Failed to process analysis results.</div>`;
+                }
+
+            } catch (e) {
+                console.error(e);
+                contentBox.innerHTML = `
+                    <div class="text-sm text-amber-400 flex items-center gap-2">
+                        <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                        An error occurred. Ensure the API key is set and internet connection is stable.
+                    </div>`;
+                lucide.createIcons();
+            } finally {
+                btn.innerHTML = '✨ Generate Executive Summary';
+                btn.disabled = false;
+                lucide.createIcons();
+            }
+        }
+
+        // Initialize App on Load
+        loadExcelSimulation();
+
+    </script>
+</body>
+</html>
