@@ -140,22 +140,22 @@
                 <div class="p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 relative group hover:border-emerald-500/30 transition-colors">
                     <h3 class="text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Point of Marginal Cheapness (PMC)</h3>
                     <p class="text-xs text-zinc-400 mb-2">Lower Price Bound</p>
-                    <div class="text-2xl font-bold text-white" id="valPMC">$0</div>
+                    <div class="text-2xl font-bold text-white" id="valPMC">Rp 0</div>
                 </div>
                 <div class="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 relative group shadow-[0_0_20px_rgba(16,185,129,0.05)]">
                     <h3 class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-1">Optimal Price Point (OPP)</h3>
                     <p class="text-xs text-emerald-500/70 mb-2">Lowest Rejection</p>
-                    <div class="text-2xl font-bold text-emerald-400" id="valOPP">$0</div>
+                    <div class="text-2xl font-bold text-emerald-400" id="valOPP">Rp 0</div>
                 </div>
                 <div class="p-5 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 relative group shadow-[0_0_20px_rgba(99,102,241,0.05)]">
                     <h3 class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider mb-1">Indifference Price Point (IDP)</h3>
                     <p class="text-xs text-indigo-500/70 mb-2">Normal/Fair Price</p>
-                    <div class="text-2xl font-bold text-indigo-400" id="valIDP">$0</div>
+                    <div class="text-2xl font-bold text-indigo-400" id="valIDP">Rp 0</div>
                 </div>
                 <div class="p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 relative group hover:border-rose-500/30 transition-colors">
                     <h3 class="text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Point of Marginal Expensiveness (PME)</h3>
                     <p class="text-xs text-zinc-400 mb-2">Upper Price Bound</p>
-                    <div class="text-2xl font-bold text-white" id="valPME">$0</div>
+                    <div class="text-2xl font-bold text-white" id="valPME">Rp 0</div>
                 </div>
             </div>
 
@@ -183,7 +183,7 @@
                         <div class="p-2 bg-indigo-500/10 w-fit rounded-lg mb-4 border border-indigo-500/20"><i data-lucide="users" class="w-5 h-5 text-indigo-400"></i></div>
                         <h3 class="text-sm font-semibold text-zinc-400 mb-1">Optimal Adoption Price</h3>
                         <p class="text-xs text-zinc-500 mb-3">Maximize Market Share (Volume)</p>
-                        <div class="text-3xl font-bold text-indigo-400 mb-1" id="valMaxAdoptionPrice">$0</div>
+                        <div class="text-3xl font-bold text-indigo-400 mb-1" id="valMaxAdoptionPrice">Rp 0</div>
                         <div class="text-sm text-zinc-300">Estimated Trial Rate: <span class="font-bold" id="valMaxAdoptionRate">0%</span></div>
                     </div>
 
@@ -191,7 +191,7 @@
                         <div class="p-2 bg-purple-500/10 w-fit rounded-lg mb-4 border border-purple-500/20"><i data-lucide="coins" class="w-5 h-5 text-purple-400"></i></div>
                         <h3 class="text-sm font-semibold text-zinc-400 mb-1">Optimal Revenue Price</h3>
                         <p class="text-xs text-zinc-500 mb-3">Maximize Revenue (Price × Probability)</p>
-                        <div class="text-3xl font-bold text-purple-400 mb-1" id="valMaxRevenuePrice">$0</div>
+                        <div class="text-3xl font-bold text-purple-400 mb-1" id="valMaxRevenuePrice">Rp 0</div>
                         <div class="text-sm text-zinc-300">Revenue Index: <span class="font-bold" id="valMaxRevenueIndex">0</span></div>
                     </div>
                 </div>
@@ -234,17 +234,17 @@
                     <!-- Markers -->
                     <div id="markerPMC" class="absolute top-0 w-1 h-full bg-emerald-500 z-10 -ml-0.5 rounded-full wtp-bar-transition"></div>
                     <div id="labelPMC" class="absolute top-12 text-[11px] text-emerald-400 -translate-x-1/2 text-center wtp-bar-transition whitespace-nowrap">
-                        PMC (Lower Bound)<br><strong id="wtpValPMC" class="text-sm">$0</strong>
+                        PMC (Lower Bound)<br><strong id="wtpValPMC" class="text-sm">Rp 0</strong>
                     </div>
                     
                     <div id="markerIDP" class="absolute top-0 w-1 h-full bg-indigo-500 z-10 -ml-0.5 rounded-full wtp-bar-transition shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
                     <div id="labelIDP" class="absolute top-12 text-[11px] text-indigo-400 -translate-x-1/2 text-center wtp-bar-transition whitespace-nowrap">
-                        IDP (Fair Price)<br><strong id="wtpValIDP" class="text-sm">$0</strong>
+                        IDP (Fair Price)<br><strong id="wtpValIDP" class="text-sm">Rp 0</strong>
                     </div>
                     
                     <div id="markerPME" class="absolute top-0 w-1 h-full bg-rose-500 z-10 -ml-0.5 rounded-full wtp-bar-transition"></div>
                     <div id="labelPME" class="absolute top-12 text-[11px] text-rose-400 -translate-x-1/2 text-center wtp-bar-transition whitespace-nowrap">
-                        PME (Upper Bound)<br><strong id="wtpValPME" class="text-sm">$0</strong>
+                        PME (Upper Bound)<br><strong id="wtpValPME" class="text-sm">Rp 0</strong>
                     </div>
                 </div>
 
@@ -255,7 +255,7 @@
                             <h4 class="font-bold text-indigo-400 text-lg">Market Penetration Strategy</h4>
                         </div>
                         <p class="text-sm text-zinc-400 mb-5">Recommended price to acquire the maximum number of users (Max Adoption Rate). Suitable when fighting dominant competitors.</p>
-                        <div class="text-3xl font-bold text-white" id="wtpPenetration">$0</div>
+                        <div class="text-3xl font-bold text-white" id="wtpPenetration">Rp 0</div>
                     </div>
                     
                     <div class="p-6 rounded-2xl bg-purple-950/20 border border-purple-500/20">
@@ -264,7 +264,7 @@
                             <h4 class="font-bold text-purple-400 text-lg">Profit Maximization Strategy</h4>
                         </div>
                         <p class="text-sm text-zinc-400 mb-5">Recommended price to capture the highest gross revenue. Suitable when brand position is strong and focusing on profit growth.</p>
-                        <div class="text-3xl font-bold text-white" id="wtpPremium">$0</div>
+                        <div class="text-3xl font-bold text-white" id="wtpPremium">Rp 0</div>
                     </div>
                 </div>
 
@@ -311,8 +311,8 @@
         let surveyData = [];
         let chartVW, chartAdoption, chartRevenue;
 
-        // Number Formatters
-        const formatCurr = val => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(Math.round(val));
+        // Number Formatters (Changed to IDR)
+        const formatCurr = val => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Math.round(val));
         const formatPct = val => (val * 100).toFixed(1) + '%';
 
         // --- COPY & PASTE LOGIC ---
@@ -328,35 +328,6 @@
             
             // Re-use the existing smart parsing logic
             parseExcelData(rows);
-        }
-
-        // --- EXCEL FILE UPLOAD LOGIC ---
-        function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    // Priority: look for a sheet named 'Data' or use the first sheet
-                    const sheetName = workbook.SheetNames.find(s => s.toLowerCase().includes('data')) || workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
-                    
-                    // Read as 2D array (array of arrays) instead of objects to bypass header row issues
-                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null });
-                    
-                    parseExcelData(rows);
-                } catch (error) {
-                    console.error("Error reading file:", error);
-                    alert("Failed to read the Excel file. Please ensure it's a valid format.");
-                }
-                // Reset input
-                event.target.value = '';
-            };
-            reader.readAsArrayBuffer(file);
         }
 
         function parseExcelData(rows) {
@@ -464,18 +435,18 @@
             }
         }
 
-        // Simulate reading from an Excel file if user clicks "Run Simulation"
+        // Simulate reading from an Excel file if user clicks "Load Demo"
         function loadExcelSimulation() {
             const numRespondents = 80; 
             surveyData = [];
             
             for(let i=1; i<=numRespondents; i++) {
-                const userBase = 20 + Math.random() * 40; 
+                const userBase = 20000 + Math.random() * 40000; 
                 
-                const tc = Math.round(userBase * (0.4 + Math.random()*0.3));
-                const c = Math.round(userBase * (0.8 + Math.random()*0.3));
-                const e = Math.round(userBase * (1.2 + Math.random()*0.4));
-                const te = Math.round(userBase * (1.6 + Math.random()*0.5));
+                const tc = Math.round((userBase * (0.4 + Math.random()*0.3)) / 1000) * 1000;
+                const c = Math.round((userBase * (0.8 + Math.random()*0.3)) / 1000) * 1000;
+                const e = Math.round((userBase * (1.2 + Math.random()*0.4)) / 1000) * 1000;
+                const te = Math.round((userBase * (1.6 + Math.random()*0.5)) / 1000) * 1000;
 
                 const pi_c = Math.floor(Math.random() * 3) + 3; 
                 const pi_e = Math.floor(Math.random() * 3) + 1; 
@@ -773,8 +744,8 @@
 
         // Render Chart.js
         function renderAllCharts(labels, vwData, nmsData, pmc, pme) {
-            // Downsample labels for cleaner X-axis
-            const chartLabels = labels.map(l => formatCurr(l).replace('$', ''));
+            // Downsample labels for cleaner X-axis, replace Rp and remove extra spaces
+            const chartLabels = labels.map(l => formatCurr(l).replace(/Rp/g, '').trim());
             
             const commonOptions = {
                 responsive: true, maintainAspectRatio: false,
